@@ -1,5 +1,8 @@
 import cv2
 import mediapipe as mp
+import tkinter as tk
+from tkinter import messagebox
+from PIL import Image, ImageTk
 
 # Mediapipe'nin el tespiti modüllerini başlatıyoruz
 mp_hands = mp.solutions.hands
@@ -9,10 +12,27 @@ mp_drawing = mp.solutions.drawing_utils
 # Video kaynağını açıyoruz
 cap = cv2.VideoCapture(0)
 
-while cap.isOpened():
+# Tkinter arayüzünü başlatıyoruz
+root = tk.Tk()
+root.title("Hand Tracking with AI")
+root.geometry("800x600")
+
+# Video penceresini eklemek için bir canvas oluşturuyoruz
+canvas = tk.Canvas(root, width=640, height=480)
+canvas.pack()
+
+# Çıkış butonu
+def on_close():
+    cap.release()
+    root.quit()
+
+root.protocol("WM_DELETE_WINDOW", on_close)
+
+# Video akışını Tkinter canvas'ına aktaran fonksiyon
+def update_frame():
     ret, frame = cap.read()
     if not ret:
-        break
+        return
 
     # Görüntü işleme: BGR'den RGB'ye dönüştürme
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -27,28 +47,28 @@ while cap.isOpened():
             # Parmakların uçlarını tespit etme (örneğin baş parmak)
             thumb_tip = landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
             index_tip = landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-            middle_tip = landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
-
-            # Ekranda parmak uçlarını gösterme
-            thumb_tip_x, thumb_tip_y = int(thumb_tip.x * frame.shape[1]), int(thumb_tip.y * frame.shape[0])
-            index_tip_x, index_tip_y = int(index_tip.x * frame.shape[1]), int(index_tip.y * frame.shape[0])
-            middle_tip_x, middle_tip_y = int(middle_tip.x * frame.shape[1]), int(middle_tip.y * frame.shape[0])
 
             # Parmak uçlarını kırmızı noktalarla işaretleme
+            thumb_tip_x, thumb_tip_y = int(thumb_tip.x * frame.shape[1]), int(thumb_tip.y * frame.shape[0])
+            index_tip_x, index_tip_y = int(index_tip.x * frame.shape[1]), int(index_tip.y * frame.shape[0])
+
             cv2.circle(frame, (thumb_tip_x, thumb_tip_y), 5, (0, 0, 255), -1)
             cv2.circle(frame, (index_tip_x, index_tip_y), 5, (0, 0, 255), -1)
-            cv2.circle(frame, (middle_tip_x, middle_tip_y), 5, (0, 0, 255), -1)
 
-            # Parmaklar arası mesafe hesaplama örneği
-            distance = ((index_tip_x - thumb_tip_x) ** 2 + (index_tip_y - thumb_tip_y) ** 2) ** 0.5
-            cv2.putText(frame, f'Distance: {int(distance)}', (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+    # Tkinter'a uyumlu hale getirmek için OpenCV formatını değiştiriyoruz
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    img = Image.fromarray(frame)
+    img_tk = ImageTk.PhotoImage(image=img)
 
-    # Sonuçları gösteriyoruz
-    cv2.imshow('Hand Tracking', frame)
+    # Canvas'ta görüntüyü güncelliyoruz
+    canvas.create_image(0, 0, anchor=tk.NW, image=img_tk)
+    canvas.image = img_tk
 
-    # 'q' tuşuna basıldığında çıkış yapar
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+    # Fonksiyonu tekrar çağırıyoruz
+    root.after(10, update_frame)
 
-cap.release()
-cv2.destroyAllWindows()
+# Başlangıçta video akışını başlatıyoruz
+update_frame()
+
+# Uygulama penceresini çalıştırıyoruz
+root.mainloop()
